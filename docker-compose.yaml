@@ -1,0 +1,90 @@
+# nginx proxy address - http://172.17.0.1:8000
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "1"
+
+services:
+  paperless-ngx:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx-app
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - paperless-ngx
+    ports:
+      - "8000:8000"
+    environment:
+      TZ: ${TZ:-America/New_York}
+      PAPERLESS_REDIS: redis://paperless-ngx-redis:6379
+      PAPERLESS_DBHOST: paperless-ngx-db
+      PAPERLESS_DBNAME: ${DB_CREATE_DATABASE_NAME:-paperless}
+      PAPERLESS_DBUSER: ${DB_USER_NAME:-paperless}
+      PAPERLESS_DBPASS: ${DB_USER_PASS:-changeme_db_password}
+      PAPERLESS_SECRET_KEY: ${APP_SECRET_KEY:-changeme_secret_key}
+      PAPERLESS_URL: https://${BASE_DOMAIN_NAME:-${BASE_HOST_NAME:-localhost}}
+      PAPERLESS_ADMIN_USER: ${APP_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${APP_ADMIN_PASS:-changeme_admin_password}
+      PAPERLESS_ADMIN_MAIL: ${APP_ADMIN_USER:-admin}@${BASE_DOMAIN_NAME:-${BASE_HOST_NAME:-localhost}}
+      PAPERLESS_OCR_LANGUAGE: eng
+      PAPERLESS_TIME_ZONE: ${TZ:-America/New_York}
+      PAPERLESS_EMAIL_HOST: ${EMAIL_SERVER_HOST:-172.17.0.1}
+      PAPERLESS_EMAIL_PORT: ${EMAIL_SERVER_PORT:-587}
+      PAPERLESS_EMAIL_HOST_USER: ${EMAIL_SERVER_LOGIN_NAME:-}
+      PAPERLESS_EMAIL_HOST_PASSWORD: ${EMAIL_SERVER_LOGIN_PASS:-}
+      PAPERLESS_EMAIL_FROM: paperless-ngx@${BASE_DOMAIN_NAME:-${BASE_HOST_NAME:-localhost}}
+      PAPERLESS_EMAIL_USE_TLS: "true"
+    volumes:
+      - ./rootfs/data/paperless-ngx:/usr/src/paperless/data
+      - ./rootfs/data/media/documents:/usr/src/paperless/media
+      - ./rootfs/data/export:/usr/src/paperless/export
+      - ./rootfs/data/consume:/usr/src/paperless/consume
+    depends_on:
+      - paperless-ngx-db
+      - paperless-ngx-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  paperless-ngx-db:
+    image: postgres:16-alpine
+    container_name: paperless-ngx-db
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - paperless-ngx
+    environment:
+      TZ: ${TZ:-America/New_York}
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-paperless}
+      POSTGRES_USER: ${DB_USER_NAME:-paperless}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+    volumes:
+      - ./rootfs/db/postgres/paperless-ngx:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  paperless-ngx-redis:
+    image: redis:7-alpine
+    container_name: paperless-ngx-redis
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - paperless-ngx
+    environment:
+      TZ: ${TZ:-America/New_York}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  paperless-ngx:
+    external: false
