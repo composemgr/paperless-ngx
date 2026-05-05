@@ -61,11 +61,11 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/data/paperless-ngx` - Data storage
-- `./rootfs/data/media/documents` - Data storage
-- `./rootfs/data/export` - Data storage
-- `./rootfs/data/consume` - Data storage
-- `./rootfs/data/db/postgres/paperless-ngx` - Data storage
+- `./volumes/data/paperless-ngx` - Data storage
+- `./volumes/data/media/documents` - Data storage
+- `./volumes/data/export` - Data storage
+- `./volumes/data/consume` - Data storage
+- `./volumes/data/db/postgres/paperless-ngx` - Data storage
 
 ## 🔐 Security
 
