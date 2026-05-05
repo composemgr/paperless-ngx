@@ -37,10 +37,10 @@ services:
       PAPERLESS_EMAIL_FROM: paperless-ngx@${BASE_DOMAIN_NAME:-${BASE_HOST_NAME:-localhost}}
       PAPERLESS_EMAIL_USE_TLS: "true"
     volumes:
-      - ./rootfs/data/paperless-ngx:/usr/src/paperless/data
-      - ./rootfs/data/media/documents:/usr/src/paperless/media
-      - ./rootfs/data/export:/usr/src/paperless/export
-      - ./rootfs/data/consume:/usr/src/paperless/consume
+      - ./volumes/data/paperless-ngx:/usr/src/paperless/data
+      - ./volumes/data/media/documents:/usr/src/paperless/media
+      - ./volumes/data/export:/usr/src/paperless/export
+      - ./volumes/data/consume:/usr/src/paperless/consume
     depends_on:
       - paperless-ngx-db
       - paperless-ngx-redis
@@ -63,7 +63,7 @@ services:
       POSTGRES_USER: ${DB_USER_NAME:-paperless}
       POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
     volumes:
-      - ./rootfs/data/db/postgres/paperless-ngx:/var/lib/postgresql/data
+      - ./volumes/data/db/postgres/paperless-ngx:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 30s
