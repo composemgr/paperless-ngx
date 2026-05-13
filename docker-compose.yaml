@@ -1,5 +1,6 @@
 # nginx proxy address - http://172.17.0.1:8000
 
+name: paperless-ngx
 x-logging: &default-logging
   driver: json-file
   options:
@@ -9,13 +10,14 @@ x-logging: &default-logging
 services:
   paperless-ngx:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    pull_policy: always
     container_name: paperless-ngx-app
-    restart: unless-stopped
+    restart: always
     logging: *default-logging
     networks:
       - paperless-ngx
     ports:
-      - "8000:8000"
+      - "172.17.0.1:8000:8000"
     environment:
       TZ: ${TZ:-America/New_York}
       PAPERLESS_REDIS: redis://paperless-ngx-redis:6379
@@ -51,9 +53,10 @@ services:
       retries: 3
 
   paperless-ngx-db:
-    image: postgres:16-alpine
+    image: postgres:latest
+    pull_policy: always
     container_name: paperless-ngx-db
-    restart: unless-stopped
+    restart: always
     logging: *default-logging
     networks:
       - paperless-ngx
@@ -71,9 +74,10 @@ services:
       retries: 3
 
   paperless-ngx-redis:
-    image: redis:7-alpine
+    image: redis:alpine
+    pull_policy: always
     container_name: paperless-ngx-redis
-    restart: unless-stopped
+    restart: always
     logging: *default-logging
     networks:
       - paperless-ngx
