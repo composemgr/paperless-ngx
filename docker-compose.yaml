@@ -16,6 +16,8 @@ services:
     logging: *default-logging
     networks:
       - paperless-ngx
+      - proxy
+      - cloudflare
     ports:
       - "172.17.0.1:8000:8000"
     environment:
@@ -38,6 +40,8 @@ services:
       PAPERLESS_EMAIL_HOST_PASSWORD: ${EMAIL_SERVER_LOGIN_PASS:-}
       PAPERLESS_EMAIL_FROM: paperless-ngx@${BASE_DOMAIN_NAME:-${BASE_HOST_NAME:-localhost}}
       PAPERLESS_EMAIL_USE_TLS: "true"
+      CONTAINER_NAME: paperless-ngx-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     volumes:
       - ./volumes/data/paperless-ngx:/usr/src/paperless/data
       - ./volumes/data/media/documents:/usr/src/paperless/media
@@ -51,6 +55,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://paperless-ngx-app:8000'
+      - 'cloudflare.hostname=paperless-ngx.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.paperless-ngx-app.entrypoints=http'
+      - 'traefik.http.routers.paperless-ngx-app-secure.tls=true'
+      - 'traefik.http.routers.paperless-ngx-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.paperless-ngx-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.paperless-ngx-app.middlewares=paperless-ngx-app-https-redirect'
+      - 'traefik.http.routers.paperless-ngx-app-secure.entrypoints=https'
+      - 'traefik.http.routers.paperless-ngx-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.paperless-ngx-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.paperless-ngx-app-secure.service=paperless-ngx-app'
+      - 'traefik.http.services.paperless-ngx-app.loadbalancer.server.port=8000'
 
   paperless-ngx-db:
     image: postgres:latest
@@ -65,6 +85,7 @@ services:
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-paperless}
       POSTGRES_USER: ${DB_USER_NAME:-paperless}
       POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      CONTAINER_NAME: paperless-ngx-db
     volumes:
       - ./volumes/data/db/postgres/paperless-ngx:/var/lib/postgresql/data
     healthcheck:
@@ -83,6 +104,7 @@ services:
       - paperless-ngx
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: paperless-ngx-redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -92,3 +114,7 @@ services:
 networks:
   paperless-ngx:
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
