@@ -1,0 +1,111 @@
+name: paperless-ngx
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  server:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx-server
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: paperless-ngx-server
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+      # Application
+      PAPERLESS_REDIS: redis://paperless-ngx-redis:6379
+      PAPERLESS_SECRET_KEY: ${APP_SECRET_KEY:-changeme_secret_key}
+      PAPERLESS_URL: https://${BASE_HOST_NAME:-$HOSTNAME}
+      PAPERLESS_TIME_ZONE: ${TZ:-America/New_York}
+      PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE:-eng}
+      PAPERLESS_OCR_MODE: ${PAPERLESS_OCR_MODE:-auto}
+      PAPERLESS_FILENAME_FORMAT: ${PAPERLESS_FILENAME_FORMAT:-{document_title}}_{{created_year}}-{{created_month}}-{{created_day}}
+      PAPERLESS_TASK_WORKERS: ${PAPERLESS_TASK_WORKERS:-2}
+      PAPERLESS_THREADS_PER_WORKER: ${PAPERLESS_THREADS_PER_WORKER:-10}
+      PAPERLESS_ADMIN_USER: ${APP_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${APP_ADMIN_PASS:-changeme_admin_password}
+      PAPERLESS_ADMIN_MAIL: ${APP_ADMIN_USER:-admin}@${BASE_HOST_NAME:-$HOSTNAME}
+      # Database
+      PAPERLESS_DBHOST: paperless-ngx-db
+      PAPERLESS_DBNAME: ${DB_CREATE_DATABASE_NAME:-paperless}
+      PAPERLESS_DBUSER: ${DB_USER_NAME:-paperless}
+      PAPERLESS_DBPASS: ${DB_USER_PASS:-changeme_db_password}
+      # Email
+      PAPERLESS_EMAIL_HOST: ${EMAIL_SERVER_HOST:-172.17.0.1}
+      PAPERLESS_EMAIL_PORT: ${EMAIL_SERVER_PORT:-587}
+      PAPERLESS_EMAIL_HOST_USER: ${EMAIL_SERVER_LOGIN_NAME:-}
+      PAPERLESS_EMAIL_HOST_PASSWORD: ${EMAIL_SERVER_LOGIN_PASS:-}
+      PAPERLESS_EMAIL_FROM: ${EMAIL_SERVER_MAIL_FROM:-no-reply}
+      PAPERLESS_EMAIL_USE_TLS: ${EMAIL_SERVER_USE_TLS:-true}
+      PAPERLESS_EMAIL_USE_SSL: ${EMAIL_SERVER_USE_SSL:-false}
+    volumes:
+      - './volumes/data/paperless-ngx:/usr/src/paperless/data:z'
+      - './volumes/data/media/documents:/usr/src/paperless/media:ro'
+      - './volumes/data/export:/usr/src/paperless/export:rw'
+      - './volumes/data/consume:/usr/src/paperless/consume:rw'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - 'cloudflare.enable=true'
+      - 'cloudflare.service=http://paperless-ngx-server:8000'
+      - 'cloudflare.hostname=${BASE_HOST_NAME:-$HOSTNAME}'
+    networks:
+      - paperless-ngx
+      - cloudflare
+
+  db:
+    image: postgres:latest
+    container_name: paperless-ngx-db
+    hostname: paperless-ngx-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: paperless-ngx-db
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-paperless}
+      POSTGRES_USER: ${DB_USER_NAME:-paperless}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+    volumes:
+      - './volumes/db/postgres/paperless-ngx:/var/lib/postgresql/data:z'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paperless-ngx
+
+  redis:
+    image: redis:alpine
+    container_name: paperless-ngx-redis
+    hostname: paperless-ngx-redis
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: paperless-ngx-redis
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paperless-ngx
+
+networks:
+  paperless-ngx:
+    name: paperless-ngx
+    external: false
+  cloudflare:
+    external: true
