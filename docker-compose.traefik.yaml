@@ -44,6 +44,12 @@ services:
       PAPERLESS_EMAIL_FROM: ${EMAIL_SERVER_MAIL_FROM:-no-reply}
       PAPERLESS_EMAIL_USE_TLS: ${EMAIL_SERVER_USE_TLS:-true}
       PAPERLESS_EMAIL_USE_SSL: ${EMAIL_SERVER_USE_SSL:-false}
+    healthcheck:
+      test: ['CMD', 'curl', '-fs', '-S', '-L', '--max-time', '2', 'http://localhost:8000']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - './volumes/data/paperless-ngx:/usr/src/paperless/data:z'
       - './volumes/data/media/documents:/usr/src/paperless/media:ro'
